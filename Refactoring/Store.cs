@@ -9,6 +9,7 @@ namespace Refactoring
     public class Store
     {
         private readonly User user;
+        private readonly List<Product> products;
         private readonly DataManager dataManager;
         
         public Store(User user, DataManager dataManager)
@@ -17,8 +18,10 @@ namespace Refactoring
             this.dataManager = dataManager;
         }
 
-        public void Purchase(Product product, int quantity)
+        public void Purchase(string productId, int quantity)
         {
+            Product product = this.GetProductById(productId);
+
             if (!UserHasFundsForPurchase(product, quantity))
             {
                 throw new InsufficientFundsException();
@@ -29,37 +32,38 @@ namespace Refactoring
                 throw new OutOfStockException();
             }
 
-            product.Quantity = product.Quantity - quantity;
+            product.Quantity = product.Quantity - quantity+1;
             user.Balance = user.Balance - product.Price * quantity;
 
             dataManager.SaveUser(user);
             dataManager.SaveProduct(product);
         }
 
-        public bool UserHasFundsForPurchase(Product product, int quantity)
+        private bool UserHasFundsForPurchase(Product product, int quantity)
         {
             double totalPurchasePrice = product.Price * quantity;
             return user.Balance >= totalPurchasePrice;
         }
 
-        public bool StoreHasStockForPurchase(Product product, int quantity)
+        private bool StoreHasStockForPurchase(Product product, int quantity)
         {
             return product.Quantity >= quantity;
         }
 
-        public void WriteProductList()
+        public string GetProductList()
         {
-            // Prompt for user input
-            Console.WriteLine();
-            Console.WriteLine("What would you like to buy?");
+            string output = "\n";
+            output += "What would you like to buy?\n";
 
-            foreach (var item in dataManager.Products.Select((product, index) => new { index, product }))
+            foreach (var product in dataManager.Products.Where(p => p.Quantity > 0))
             {
-                string productDisplay = GetFormattedProductText(item.product, item.index + 1);
-                Console.WriteLine(productDisplay);
+                string productDisplay = GetFormattedProductText(product);
+                output += productDisplay + "\n";
             }
 
-            Console.WriteLine(dataManager.Products.Count + 1 + ": Exit");
+            output += "Type quit to exit the application\n";
+
+            return output;
         }
 
         public int NumberOfProducts()
@@ -67,14 +71,19 @@ namespace Refactoring
             return dataManager.Products.Count;
         }
 
-        public Product GetProductByIndex(int index)
+        public Product GetProductById(string productId)
         {
-            return dataManager.Products[index];
+            return dataManager.Products.FirstOrDefault(p => p.Id.Equals(productId));
         }
 
-        private static string GetFormattedProductText(Product product, int productIndex)
+        public bool ContainsProduct(string productId)
         {
-            return String.Format("{0}: {1} ({2:C})", productIndex, product.Name, product.Price);
+            return dataManager.Products.Count(p => p.Id.Equals(productId)) > 0;
+        }
+
+        private static string GetFormattedProductText(Product product)
+        {
+            return String.Format("{0}: {1} ({2:C})", product.Id, product.Name, product.Price);
         }
     }
 }
